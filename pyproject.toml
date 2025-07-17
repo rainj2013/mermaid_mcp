@@ -1,6 +1,8 @@
 [project]
 name = "mermaid-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "一个基于mermaid-cli的绘图MCP工具"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastmcp>=2.10.5"
+]

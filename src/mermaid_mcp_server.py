@@ -17,10 +17,22 @@ mcp = FastMCP("mermaid绘图助手")
 SYSTEM_MERMAID_CLI = "mmdc.cmd" if os.name == "nt" else "mmdc"
 MERMAID_CLI_PATH = os.environ.get("MERMAID_CLI_PATH", SYSTEM_MERMAID_CLI)
 OUTPUT_DIR = os.environ.get("MERMAID_OUTPUT_DIR", "./output")
+VALIDATION_OUTPUT_DIR = os.environ.get("MERMAID_VALIDATION_OUTPUT_DIR", "./output")
 IMAGE_FORMAT = os.environ.get("MERMAID_IMAGE_FORMAT", "png")
 
 # 确保输出目录存在
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(VALIDATION_OUTPUT_DIR, exist_ok=True)
+
+
+def _get_puppeteer_config_path() -> str:
+    """根据操作系统类型返回对应的puppeteer配置文件路径"""
+    if os.name == "nt":  # Windows系统
+        config_file = "puppeteer-config-windows.json"
+    else:  # 非Windows系统（macOS、Linux等）
+        config_file = "puppeteer-config.json"
+    
+    return os.path.join(os.path.dirname(__file__), config_file)
 
 
 def _generate_file_id(script: str) -> str:
@@ -36,18 +48,6 @@ def _check_mermaid_cli() -> bool:
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
-
-
-def _install_mermaid_cli():
-    """安装mermaid cli"""
-    try:
-        subprocess.run(["npm", "install", "-g", "@mermaid-js/mermaid-cli"], 
-                      check=True)
-        logger.info("Mermaid CLI installed successfully")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to install Mermaid CLI: {e}")
-        raise RuntimeError("Mermaid CLI installation failed")
-
 
 @mcp.tool(
     name="render_mermaid",
@@ -78,14 +78,12 @@ def render_mermaid(
     try:
         # 检查Mermaid CLI
         if not _check_mermaid_cli():
-            logger.warning("Mermaid CLI not found, attempting to install...")
-            _install_mermaid_cli()
-            if not _check_mermaid_cli():
-                return {
-                    "success": False,
-                    "error": "Mermaid CLI (mmdc) not available. Please install with: npm install -g @mermaid-js/mermaid-cli"
-                }
-        
+            logger.warning("Mermaid CLI not found, Please install with: npm install -g @mermaid-js/mermaid-cli --ignore-scripts")
+            return {
+                "success": False,
+                "error": "Mermaid CLI (mmdc) not available. Please install with: npm install -g @mermaid-js/mermaid-cli --ignore-scripts"
+            }
+
         # 生成文件ID和输出路径
         file_id = _generate_file_id(script)
         output_filename = f"mermaid_{file_id}.{format}"
@@ -106,7 +104,7 @@ def render_mermaid(
                 "--width", str(width),
                 "--height", str(height),
                 "--backgroundColor", background,
-                "--puppeteerConfigFile", "puppeteer-config.json"
+                "--puppeteerConfigFile", _get_puppeteer_config_path()
             ]
             
             # 执行命令
@@ -196,14 +194,19 @@ def validate_mermaid(script: str) -> Dict[str, Any]:
             temp_file.write(script)
             temp_mermaid_path = temp_file.name
         
+        # 生成验证输出文件路径
+        file_id = _generate_file_id(script)
+        validation_output_path = os.path.join(VALIDATION_OUTPUT_DIR, f"validation_{file_id}.png")
+        
         try:
-            # 使用mermaid-cli的验证模式
+            # 使用mermaid-cli进行验证，输出到.output目录
             cmd = [
                 MERMAID_CLI_PATH,
                 "--input", temp_mermaid_path,
-                "--output", "/dev/null",  # 不实际生成文件
+                "--output", validation_output_path,
+                "--outputFormat", "png",
                 "--quiet",
-                "--puppeteerConfigFile", os.path.join(os.path.dirname(__file__), "puppeteer-config.json")
+                "--puppeteerConfigFile", _get_puppeteer_config_path()
             ]
             
             result = subprocess.run(
@@ -215,9 +218,17 @@ def validate_mermaid(script: str) -> Dict[str, Any]:
             
             is_valid = result.returncode == 0
             
+            # 如果验证成功，删除生成的临时文件
+            if is_valid and os.path.exists(validation_output_path):
+                os.unlink(validation_output_path)
+                output_file = None
+            else:
+                output_file = validation_output_path if os.path.exists(validation_output_path) else None
+            
             return {
                 "is_valid": is_valid,
-                "error": result.stderr if not is_valid else None
+                "error": result.stderr if not is_valid else None,
+                "output_file": output_file
             }
             
         except subprocess.TimeoutExpired:

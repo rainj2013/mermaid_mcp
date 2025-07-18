@@ -52,6 +52,32 @@ class MermaidMCPClient:
             
             await self.client.__aenter__()
             logger.info("Successfully connected to MCP server")
+            
+            # 启动时执行list_tools和list_resources
+            logger.info("🔍 正在获取服务器信息...")
+            try:
+                tools = await self.list_tools()
+                logger.info(f"✅ 发现 {len(tools)} 个可用工具")
+                
+                resources = await self.list_resources()
+                logger.info(f"✅ 发现 {len(resources)} 个可用资源")
+                
+                # 打印工具详情
+                if tools:
+                    logger.info("📋 可用工具列表:")
+                    for tool in tools:
+                        logger.info(f"  • {tool.name}: {tool.description}")
+                
+                # 打印资源详情
+                if resources:
+                    logger.info("📁 可用资源列表:")
+                    for resource in resources:
+                        logger.info(f"  • {resource.uri}: {resource.name}")
+                        
+            except Exception as e:
+                logger.warning(f"获取服务器信息时出现警告: {e}")
+                logger.info("继续运行，但某些功能可能不可用")
+            
             return self
         except Exception as e:
             logger.error(f"Failed to connect to MCP server: {e}")
@@ -242,6 +268,7 @@ async def interactive_mode():
     print("  formats  - List supported formats")
     print("  examples - Show example diagrams")
     print("  tools    - List available tools")
+    print("  resources - List available resources")
     print("  quit     - Exit the program")
     print()
     
@@ -263,6 +290,14 @@ async def interactive_mode():
                         for tool in tools:
                             print(f"  • {tool.name}: {tool.description}")
                         logger.info(f"Displayed {len(tools)} tools")
+                            
+                    elif command == "resources":
+                        logger.info("User requested resources list")
+                        resources = await client.list_resources()
+                        print("\n📁 Available Resources:")
+                        for resource in resources:
+                            print(f"  • {resource.uri}: {resource.name}")
+                        logger.info(f"Displayed {len(resources)} resources")
                             
                     elif command == "formats":
                         logger.info("User requested formats")
@@ -337,6 +372,7 @@ async def interactive_mode():
                         print("  formats  - List supported formats")
                         print("  examples - Show example diagrams")
                         print("  tools    - List available tools")
+                        print("  resources - List available resources")
                         print("  quit     - Exit the program")
                         
                     elif command == "":

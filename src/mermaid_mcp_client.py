@@ -7,16 +7,23 @@ This client connects to the mermaid_mcp_server and provides a simple interface t
 import asyncio
 import json
 import logging
+import os
 from typing import Dict, Any, Optional, List
+from pathlib import Path
 from fastmcp import Client
 
-# Configure logging
+# Configure logging to use project root/logs directory
+project_root = Path(__file__).parent.parent
+log_dir = project_root / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / "mcp_client.log"
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('mcp_client.log', encoding='utf-8')
+        logging.FileHandler(log_file, encoding='utf-8')
     ]
 )
 logger = logging.getLogger(__name__)

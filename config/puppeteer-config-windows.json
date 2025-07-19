@@ -1,0 +1,21 @@
+{
+  "executablePath": "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  "defaultViewport": {
+    "width": 1200,
+    "height": 800
+  },
+  "args": [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-web-security",
+    "--font-render-hinting=none",
+    "--disable-font-subpixel-positioning"
+  ],
+  "headless": true,
+  "fontFamily": {
+    "standard": "Arial, 'Microsoft YaHei', 'SimSun', 'SimHei', 'Microsoft JhengHei', 'WenQuanYi Micro Hei', sans-serif",
+    "cursive": "'Comic Sans MS', cursive",
+    "fantasy": "Impact, fantasy",
+    "monospace": "'Courier New', 'Consolas', monospace"
+  }
+} 

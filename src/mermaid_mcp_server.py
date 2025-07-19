@@ -7,7 +7,10 @@ from typing import Dict, Any
 import logging
 
 # 配置日志
-logging.basicConfig(level=logging.INFO, filename='mermaid_mcp.log', filemode='a', format='%(asctime)s %(levelname)s %(message)s')
+log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "mermaid_mcp.log")
+logging.basicConfig(level=logging.INFO, filename=log_file, filemode='a', format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
 # 创建 MCP 服务器
@@ -16,8 +19,9 @@ mcp = FastMCP("mermaid绘图助手")
 # 全局配置
 SYSTEM_MERMAID_CLI = "mmdc.cmd" if os.name == "nt" else "mmdc"
 MERMAID_CLI_PATH = os.environ.get("MERMAID_CLI_PATH", SYSTEM_MERMAID_CLI)
-OUTPUT_DIR = os.environ.get("MERMAID_OUTPUT_DIR", "./output")
-VALIDATION_OUTPUT_DIR = os.environ.get("MERMAID_VALIDATION_OUTPUT_DIR", "./output")
+project_root = os.path.dirname(os.path.dirname(__file__))
+OUTPUT_DIR = os.environ.get("MERMAID_OUTPUT_DIR", os.path.join(project_root, "output"))
+VALIDATION_OUTPUT_DIR = os.environ.get("MERMAID_VALIDATION_OUTPUT_DIR", os.path.join(project_root, "output"))
 IMAGE_FORMAT = os.environ.get("MERMAID_IMAGE_FORMAT", "png")
 
 # 确保输出目录存在
@@ -32,7 +36,7 @@ def _get_puppeteer_config_path() -> str:
     else:  # 非Windows系统（macOS、Linux等）
         config_file = "puppeteer-config.json"
     
-    return os.path.join(os.path.dirname(__file__), config_file)
+    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", config_file)
 
 
 def _generate_file_id(script: str) -> str:

@@ -1,0 +1,21 @@
+{
+  "executablePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "defaultViewport": {
+    "width": 1200,
+    "height": 800
+  },
+  "args": [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-web-security",
+    "--font-render-hinting=none",
+    "--disable-font-subpixel-positioning"
+  ],
+  "headless": true,
+  "fontFamily": {
+    "standard": "Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Micro Hei', sans-serif",
+    "cursive": "'Apple Chancery', 'Comic Sans MS', cursive",
+    "fantasy": "Impact, fantasy",
+    "monospace": "'Courier New', 'DejaVu Sans Mono', monospace"
+  }
+} 

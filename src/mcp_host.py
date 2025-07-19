@@ -18,30 +18,62 @@ from llm_client import MoonshotClient
 from mermaid_mcp_client import MermaidMCPClient
 
 # 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('mcp_host.log', encoding='utf-8')
-    ]
-)
+import logging.handlers
+
+project_root = Path(__file__).parent.parent
+log_dir = project_root / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / "mcp_host.log"
+
+# 创建自定义logger
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# 清除现有的处理器
+logger.handlers.clear()
+
+# 创建文件处理器
+file_handler = logging.FileHandler(log_file, encoding='utf-8', mode='a')
+file_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+# 创建控制台处理器
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+
+# 添加处理器到logger
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+# 测试日志
+logger.info("=== MCP Host 日志系统初始化完成 ===")
+logger.debug(f"日志文件路径: {log_file}")
+logger.debug(f"日志文件是否存在: {log_file.exists()}")
+logger.debug(f"日志目录权限: {log_dir.stat()}")
 
 class MCPHost:
     """MCP Host 主类"""
     
-    def __init__(self, config_path: str = "config.json"):
+    def __init__(self, config_path: str = None):
         """
         初始化MCP Host
         
         Args:
-            config_path: 配置文件路径
+            config_path: 配置文件路径，如果为None则使用默认路径
         """
+        if config_path is None:
+            # 使用项目根目录下的config目录中的配置文件
+            project_root = Path(__file__).parent.parent
+            config_path = project_root / "config" / "config.json"
+        else:
+            config_path = Path(config_path)
         self.config_path = config_path
         self.config = self._load_config()
         self.llm_client = None
         self.mcp_client = None
+        logger.info(f"MCPHost 初始化完成，配置文件路径: {self.config_path}")
         
     def _load_config(self) -> Dict[str, Any]:
         """加载配置文件"""
@@ -49,14 +81,15 @@ class MCPHost:
         
         if not config_file.exists():
             # 使用模板文件
-            template_file = Path("config.json.template")
+            project_root = Path(__file__).parent.parent
+            template_file = project_root / "config.json.template"
             if template_file.exists():
                 logger.warning(f"配置文件 {self.config_path} 不存在，使用模板文件")
                 with open(template_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             else:
                 raise FileNotFoundError(
-                    f"配置文件 {self.config_path} 和模板文件 config.json.template 都不存在"
+                    f"配置文件 {self.config_path} 和模板文件 {template_file} 都不存在"
                 )
         
         try:
@@ -305,21 +338,31 @@ class MCPHost:
 
 async def main():
     """主函数"""
-    # 检查配置文件
-    config_path = "config.json"
-    if not os.path.exists(config_path):
-        print("⚠️ 配置文件 config.json 不存在")
-        print("📋 请复制 config.json.template 为 config.json 并填入您的API密钥")
-        return
-    
-    host = MCPHost(config_path)
-    
-    # 检查命令行参数
-    if len(sys.argv) > 1 and sys.argv[1] == "--cli":
-        await host.interactive_mode()
-    else:
-        # 直接启动交互模式
-        await host.interactive_mode()
+    logger.info("开始执行主函数")
+    try:
+        # 检查配置文件
+        project_root = Path(__file__).parent.parent
+        config_path = project_root / "config" / "config.json"
+        if not config_path.exists():
+            logger.error(f"配置文件 {config_path} 不存在")
+            print(f"⚠️ 配置文件 {config_path} 不存在")
+            print("📋 请复制 config.json.template 为 config/config.json 并填入您的API密钥")
+            return
+        
+        logger.info(f"使用配置文件: {config_path}")
+        host = MCPHost(config_path)
+        
+        # 检查命令行参数
+        if len(sys.argv) > 1 and sys.argv[1] == "--cli":
+            logger.info("使用CLI模式启动")
+            await host.interactive_mode()
+        else:
+            logger.info("使用默认交互模式启动")
+            await host.interactive_mode()
+    except Exception as e:
+        logger.exception(f"主函数执行失败: {e}")
+        raise
 
 if __name__ == "__main__":
+    logger.info("=== MCP Host 程序启动 ===")
     asyncio.run(main())

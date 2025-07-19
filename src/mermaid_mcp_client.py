@@ -327,13 +327,13 @@ async def interactive_mode():
                         if script.strip():
                             result = await client.validate_mermaid(script)
                             print(f"\nValidation Result:")
-                            if "error" not in result:
-                                print(f"  Valid: {result.get('is_valid', False)}")
-                                if result.get('error'):
-                                    print(f"  Error: {result.get('error')}")
+                            if result.get('is_valid', False):
+                                print("✅ 解析成功")
+                                logger.info("Mermaid script validation successful")
                             else:
-                                print(f"  Error: {result.get('error', 'Unknown error')}")
-                            logger.info("Completed validation")
+                                error_msg = result.get('error', '未知错误')
+                                print(f"❌ 解析失败: {error_msg}")
+                                logger.error(f"Mermaid script validation failed: {error_msg}")
                         else:
                             print("❌ No script provided")
                             

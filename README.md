@@ -44,7 +44,7 @@
 
 5. **配置 puppeteer-config.json**
    
-   `src/puppeteer-config.json` 文件中的 `executablePath` 字段需要填写您本地 Chrome 或 Chromium 浏览器的实际路径，否则渲染会失败。
+   `config/puppeteer-config.json` 文件中的 `executablePath` 字段需要填写您本地 Chrome 或 Chromium 浏览器的实际路径，否则渲染会失败。
    
    示例：
    ```json
@@ -92,4 +92,14 @@ python src/mermaid_mcp_client.py
 - `tools` - 列出可用工具
 - `resources` - 列出可用资源
 
-详细使用说明请参考 [MCP Client 文档](mcp_client_README.md)
+详细使用说明请参考 [MCP Client 文档](MCP_CLIENT_README.md)
+
+## 使用 MCP Host 智能主机
+
+本项目还包含一个智能主机程序，可以自动分析用户意图并生成图表：
+
+```bash
+python src/mcp_host.py
+```
+
+详细使用说明请参考 [MCP Host 文档](MCP_HOST_README.md)

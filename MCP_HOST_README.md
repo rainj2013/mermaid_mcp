@@ -26,10 +26,10 @@ uv sync
 
 1. 复制配置文件模板：
 ```bash
-cp config.json.template config.json
+cp config/config.json.template config/config.json
 ```
 
-2. 编辑 `config.json`，填入您的月之暗面API密钥：
+2. 编辑 `config/config.json`，填入您的月之暗面API密钥：
 ```json
 {
   "moonshot_api": {
@@ -238,35 +238,14 @@ mermaid_mcp/
 │   ├── llm_client.py        # 月之暗面LLM客户端
 │   ├── mermaid_mcp_client.py # MCP客户端
 │   └── mermaid_mcp_server.py # MCP服务器
-├── config.json.template    # 配置文件模板
-├── config.json             # 用户配置文件
-├── HOST_README.md          # 本文档
-└── mcp_host.log           # 运行日志
+├── config/
+│   ├── config.json.template    # 配置文件模板
+│   ├── config.json             # 用户配置文件
+│   ├── puppeteer-config.json   # macOS浏览器配置
+│   └── puppeteer-config-windows.json # Windows浏览器配置
+├── logs/
+├── output/
+├── MCP_HOST_README.md          # 本文档
+├── MCP_CLIENT_README.md        # 客户端文档
+└── README.md                   # 主项目文档
 ```
-
-## 开发指南
-
-### 扩展功能
-
-1. **添加新的图表类型**：修改 `llm_client.py` 中的图表类型识别逻辑
-2. **改进提示词**：调整 `llm_client.py` 中的系统提示词以获得更好的结果
-3. **集成其他LLM**：可以扩展 `llm_client.py` 支持其他LLM提供商
-
-### 贡献代码
-
-欢迎提交 Issue 和 Pull Request！在贡献代码前，请确保：
-
-1. 代码符合 PEP 8 规范
-2. 添加适当的错误处理
-3. 更新相关文档
-4. 测试所有功能
-
-## 许可证
-
-本项目采用 MIT 许可证，详见 LICENSE 文件。
-
-## 支持
-
-- 📧 问题反馈：提交 GitHub Issue
-- 📖 文档更新：欢迎贡献改进文档
-- 💡 功能建议：欢迎提出新的功能想法

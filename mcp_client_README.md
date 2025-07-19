@@ -281,7 +281,7 @@ async def batch_render():
    ```
    ❌ Error: Chromium not found
    ```
-   **解决：** 检查 `src/puppeteer-config.json` 中的 `executablePath` 设置
+   **解决：** 检查 `config/puppeteer-config.json` 中的 `executablePath` 设置
 
 3. **语法错误**
    ```
@@ -291,10 +291,10 @@ async def batch_render():
 
 ### 查看日志
 
-客户端日志保存在 `src/mcp_client.log` 中，可通过查看日志获取详细的错误信息：
+客户端日志保存在 `logs/mcp_client.log` 中，可通过查看日志获取详细的错误信息：
 
 ```bash
-tail -f src/mcp_client.log
+tail -f logs/mcp_client.log
 ```
 
 ## 开发指南
@@ -306,9 +306,13 @@ mermaid_mcp/
 ├── src/
 │   ├── mermaid_mcp_client.py    # 客户端主程序
 │   └── mermaid_mcp_server.py    # 服务器程序
+├── config/
+│   ├── puppeteer-config.json    # macOS浏览器配置
+│   └── puppeteer-config-windows.json # Windows浏览器配置
 ├── output/                      # 生成的图形文件
-├── mcp_client_README.md        # 本说明文档
-└── pyproject.toml              # 项目配置
+├── logs/                        # 日志文件
+├── MCP_CLIENT_README.md         # 本说明文档
+└── pyproject.toml               # 项目配置
 ```
 
 ### 扩展功能

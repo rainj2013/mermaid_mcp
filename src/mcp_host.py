@@ -82,7 +82,7 @@ class MCPHost:
         if not config_file.exists():
             # 使用模板文件
             project_root = Path(__file__).parent.parent
-            template_file = project_root / "config.json.template"
+            template_file = project_root / "config" / "config.json.template"
             if template_file.exists():
                 logger.warning(f"配置文件 {self.config_path} 不存在，使用模板文件")
                 with open(template_file, 'r', encoding='utf-8') as f:

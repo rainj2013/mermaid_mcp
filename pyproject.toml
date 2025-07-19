@@ -4,5 +4,7 @@ version = "0.1.0"
 description = "一个基于mermaid-cli的绘图MCP工具"
 requires-python = ">=3.12"
 dependencies = [
-    "fastmcp>=2.10.5"
+    "fastmcp>=2.10.5",
+    "openai>=1.30.0",
+    "python-dotenv>=1.0.0"
 ]

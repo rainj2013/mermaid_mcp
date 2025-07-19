@@ -331,7 +331,7 @@ async def interactive_mode():
                         tools = await client.list_tools()
                         print("\n📋 Available Tools:")
                         for tool in tools:
-                            print(f"  • {tool.name}: {tool.description}")
+                            print(f"  • {str(tool.name)}: {str(tool.description)}")
                         logger.info(f"Displayed {len(tools)} tools")
                             
                     elif command == "resources":
@@ -339,7 +339,7 @@ async def interactive_mode():
                         resources = await client.list_resources()
                         print("\n📁 Available Resources:")
                         for resource in resources:
-                            print(f"  • {resource.uri}: {resource.name}")
+                            print(f"  • {str(resource.uri)}: {str(resource.name)}")
                         logger.info(f"Displayed {len(resources)} resources")
                             
                     elif command == "formats":

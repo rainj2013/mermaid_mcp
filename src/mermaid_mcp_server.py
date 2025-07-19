@@ -93,8 +93,8 @@ def render_mermaid(
         output_filename = f"mermaid_{file_id}.{format}"
         output_path = os.path.join(OUTPUT_DIR, output_filename)
         
-        # 创建临时文件存储mermaid脚本
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.mmd', delete=False) as temp_file:
+        # 创建临时文件存储mermaid脚本 - 使用UTF-8编码
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.mmd', delete=False, encoding='utf-8') as temp_file:
             temp_file.write(script)
             temp_mermaid_path = temp_file.name
         
@@ -111,12 +111,21 @@ def render_mermaid(
                 "--puppeteerConfigFile", _get_puppeteer_config_path()
             ]
             
-            # 执行命令
+            # 执行命令 - 设置正确的编码环境
+            env = os.environ.copy()
+            env.update({
+                'PYTHONIOENCODING': 'utf-8',
+                'LC_ALL': 'en_US.UTF-8',
+                'LANG': 'en_US.UTF-8'
+            })
+
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                env=env,
+                encoding='utf-8'
             )
             
             if result.returncode != 0:
@@ -193,8 +202,8 @@ def validate_mermaid(script: str) -> Dict[str, Any]:
     验证Mermaid脚本的语法
     """
     try:
-        # 创建临时文件进行验证
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.mmd', delete=False) as temp_file:
+        # 创建临时文件进行验证 - 使用UTF-8编码
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.mmd', delete=False, encoding='utf-8') as temp_file:
             temp_file.write(script)
             temp_mermaid_path = temp_file.name
         
@@ -213,11 +222,21 @@ def validate_mermaid(script: str) -> Dict[str, Any]:
                 "--puppeteerConfigFile", _get_puppeteer_config_path()
             ]
             
+            # 执行命令 - 设置正确的编码环境
+            env = os.environ.copy()
+            env.update({
+                'PYTHONIOENCODING': 'utf-8',
+                'LC_ALL': 'en_US.UTF-8',
+                'LANG': 'en_US.UTF-8'
+            })
+
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
+                env=env,
+                encoding='utf-8'
             )
             
             is_valid = result.returncode == 0

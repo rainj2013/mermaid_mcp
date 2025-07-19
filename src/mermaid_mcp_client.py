@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class MermaidMCPClient:
     """Client for interacting with the Mermaid MCP Server"""
     
-    def __init__(self, server_url: str = "http://127.0.0.1:8000/sse", command: list = None):
+    def __init__(self, server_url: str = "http://127.0.0.1:8000/sse"):
         """
         Initialize the Mermaid MCP Client
         
@@ -34,21 +34,15 @@ class MermaidMCPClient:
             command: Command for stdio transport (if using stdio)
         """
         self.server_url = server_url
-        self.command = command
         self.client = None
         logger.info(f"Initialized MermaidMCPClient with server_url: {server_url}")
     
     async def __aenter__(self):
         """Async context manager entry"""
         try:
-            if self.command:
-                # stdio transport
-                logger.info(f"Connecting via stdio with command: {' '.join(self.command)}")
-                self.client = Client(self.command)
-            else:
-                # HTTP/SSE transport
-                logger.info(f"Connecting via HTTP/SSE to: {self.server_url}")
-                self.client = Client(self.server_url)
+            # HTTP/SSE transport
+            logger.info(f"Connecting via HTTP/SSE to: {self.server_url}")
+            self.client = Client(self.server_url)
             
             await self.client.__aenter__()
             logger.info("Successfully connected to MCP server")

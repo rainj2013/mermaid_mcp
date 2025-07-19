@@ -1,0 +1,15 @@
+{
+  "moonshot_api": {
+    "api_key": "YOUR_MOONSHOT_API_KEY_HERE",
+    "base_url": "https://api.moonshot.cn/v1",
+    "model": "moonshot-v1-8k"
+  },
+  "mcp_server": {
+    "server_url": "http://127.0.0.1:8000/sse"
+  },
+  "host_settings": {
+    "log_level": "INFO",
+    "max_retries": 3,
+    "timeout": 30
+  }
+}

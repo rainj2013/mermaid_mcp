@@ -68,3 +68,28 @@
    ```
    
    默认监听 8000 端口。
+
+## 使用客户端
+
+本项目包含两个主要组件：
+
+- **MCP Server** (`src/mermaid_mcp_server.py`) - 提供图形渲染服务
+- **MCP Client** (`src/mermaid_mcp_client.py`) - 提供交互式客户端界面
+
+### 使用 Mermaid MCP Client
+
+启动服务器后，可以使用客户端进行交互式操作：
+
+```bash
+python src/mermaid_mcp_client.py
+```
+
+客户端支持以下交互命令：
+- `render` - 渲染 Mermaid 图形
+- `validate` - 验证 Mermaid 语法
+- `formats` - 查看支持的输出格式
+- `examples` - 显示示例图形
+- `tools` - 列出可用工具
+- `resources` - 列出可用资源
+
+详细使用说明请参考 [MCP Client 文档](mcp_client_README.md)

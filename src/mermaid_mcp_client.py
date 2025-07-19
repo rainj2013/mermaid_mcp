@@ -7,7 +7,7 @@ This client connects to the mermaid_mcp_server and provides a simple interface t
 import asyncio
 import json
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 from fastmcp import Client
 
 # Configure logging
@@ -34,7 +34,7 @@ class MermaidMCPClient:
             command: Command for stdio transport (if using stdio)
         """
         self.server_url = server_url
-        self.client = None
+        self.client: Optional[Client] = None
         logger.info(f"Initialized MermaidMCPClient with server_url: {server_url}")
     
     async def __aenter__(self):
@@ -89,19 +89,49 @@ class MermaidMCPClient:
                 logger.error(f"Error during disconnect: {e}")
                 raise
     
-    async def list_tools(self) -> list:
+    def _check_client(self) -> None:
+        """Check if client is initialized"""
+        if self.client is None:
+            raise RuntimeError("Client is not initialized. Make sure to use async context manager.")
+    
+    async def list_tools(self) -> List[Any]:
         """List all available tools from the server"""
         logger.debug("Listing available tools")
+        self._check_client()
+        assert self.client is not None  # Type checker hint
         tools = await self.client.list_tools()
         logger.info(f"Found {len(tools)} tools")
         return tools
     
-    async def list_resources(self) -> list:
+    async def list_resources(self) -> List[Any]:
         """List all available resources from the server"""
         logger.debug("Listing available resources")
+        self._check_client()
+        assert self.client is not None  # Type checker hint
         resources = await self.client.list_resources()
         logger.info(f"Found {len(resources)} resources")
         return resources
+    
+    def _parse_response_content(self, result: Any) -> Dict[str, Any]:
+        """Parse response content safely"""
+        try:
+            if hasattr(result, 'content') and result.content:
+                # Try to get text content from the first content item
+                first_content = result.content[0]
+                if hasattr(first_content, 'text'):
+                    content_text = first_content.text
+                    return json.loads(content_text)
+                elif hasattr(first_content, 'data'):
+                    # Handle binary content
+                    return {"success": True, "data": first_content.data}
+                else:
+                    # Try to convert to string
+                    content_text = str(first_content)
+                    return json.loads(content_text)
+            return {"success": False, "error": "No content"}
+        except (json.JSONDecodeError, AttributeError, IndexError) as e:
+            logger.error(f"Error parsing response content: {e}")
+            return {"success": False, "error": f"Failed to parse response: {e}"}
     
     async def render_mermaid(
         self, 
@@ -127,6 +157,8 @@ class MermaidMCPClient:
         logger.info(f"Rendering mermaid diagram with format: {format}")
         logger.debug(f"Script: {script}")
         
+        self._check_client()
+        assert self.client is not None  # Type checker hint
         result = await self.client.call_tool(
             "render_mermaid",
             {
@@ -138,11 +170,7 @@ class MermaidMCPClient:
             }
         )
         
-        # Parse response like working demo
-        if hasattr(result, 'content') and result.content:
-            content_text = result.content[0].text
-            return json.loads(content_text)
-        return {"success": False, "error": "No content"}
+        return self._parse_response_content(result)
     
     async def validate_mermaid(self, script: str) -> Dict[str, Any]:
         """
@@ -157,36 +185,48 @@ class MermaidMCPClient:
         logger.info("Validating mermaid script")
         logger.debug(f"Script: {script}")
         
+        self._check_client()
+        assert self.client is not None  # Type checker hint
         result = await self.client.call_tool(
             "validate_mermaid",
             {"script": script}
         )
         
-        # Parse response like working demo
-        if hasattr(result, 'content') and result.content:
-            content_text = result.content[0].text
-            return json.loads(content_text)
-        return {"is_valid": False, "error": "No content"}
+        return self._parse_response_content(result)
     
     async def get_supported_formats(self) -> Dict[str, Any]:
         """Get list of supported output formats"""
         logger.info("Getting supported formats")
         
+        self._check_client()
+        assert self.client is not None  # Type checker hint
         result = await self.client.call_tool("get_supported_formats", {})
         
-        # Parse response like working demo
-        if hasattr(result, 'content') and result.content:
-            content_text = result.content[0].text
-            return json.loads(content_text)
-        return {"formats": [], "error": "No content"}
+        return self._parse_response_content(result)
+    
+    def _parse_resource_content(self, result: List[Any]) -> Optional[str]:
+        """Parse resource content safely"""
+        try:
+            if result and len(result) > 0:
+                first_result = result[0]
+                if hasattr(first_result, 'content'):
+                    return first_result.content
+                elif hasattr(first_result, 'data'):
+                    return first_result.data.decode('utf-8') if isinstance(first_result.data, bytes) else str(first_result.data)
+            return None
+        except (AttributeError, IndexError, UnicodeDecodeError) as e:
+            logger.error(f"Error parsing resource content: {e}")
+            return None
     
     async def get_output_directory(self) -> str:
         """Get current output directory from server"""
         logger.debug("Getting output directory")
         try:
+            self._check_client()
+            assert self.client is not None  # Type checker hint
             result = await self.client.read_resource("config://output_directory")
-            if result and result[0].content:
-                directory = result[0].content
+            directory = self._parse_resource_content(result)
+            if directory:
                 logger.info(f"Output directory: {directory}")
                 return directory
             return "./output"
@@ -198,9 +238,11 @@ class MermaidMCPClient:
         """Get current mermaid-cli path from server"""
         logger.debug("Getting CLI path")
         try:
+            self._check_client()
+            assert self.client is not None  # Type checker hint
             result = await self.client.read_resource("config://cli_path")
-            if result and result[0].content:
-                cli_path = result[0].content
+            cli_path = self._parse_resource_content(result)
+            if cli_path:
                 logger.info(f"CLI path: {cli_path}")
                 return cli_path
             return "mmdc"
@@ -214,21 +256,28 @@ class MermaidMCPClient:
         examples = {}
         
         try:
+            self._check_client()
+            assert self.client is not None  # Type checker hint
             flowchart = await self.client.read_resource("examples://flowchart")
-            if flowchart and flowchart[0].content:
-                examples["flowchart"] = flowchart[0].content
+            flowchart_content = self._parse_resource_content(flowchart)
+            if flowchart_content:
+                examples["flowchart"] = flowchart_content
             else:
                 examples["flowchart"] = "graph TD\n    A[Start] --> B[Process]\n    B --> C[End]"
-        except:
+        except Exception as e:
+            logger.warning(f"Error getting flowchart example: {e}")
             examples["flowchart"] = "graph TD\n    A[Start] --> B[Process]\n    B --> C[End]"
         
         try:
+            assert self.client is not None  # Type checker hint
             sequence = await self.client.read_resource("examples://sequence")
-            if sequence and sequence[0].content:
-                examples["sequence"] = sequence[0].content
+            sequence_content = self._parse_resource_content(sequence)
+            if sequence_content:
+                examples["sequence"] = sequence_content
             else:
                 examples["sequence"] = "sequenceDiagram\n    Alice->>Bob: Hello\n    Bob-->>Alice: Hi there!"
-        except:
+        except Exception as e:
+            logger.warning(f"Error getting sequence example: {e}")
             examples["sequence"] = "sequenceDiagram\n    Alice->>Bob: Hello\n    Bob-->>Alice: Hi there!"
         
         return examples

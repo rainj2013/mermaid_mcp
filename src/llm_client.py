@@ -139,7 +139,7 @@ class MoonshotClient:
 
 请分析用户输入，判断以下信息：
 1. 是否需要绘制Mermaid图表
-2. 图表类型（flowchart, sequence, class, state, entity, user-journey, gantt等）
+2. 图表类型（flowchart, sequence, class, state, entity, journey, gantt等）
 3. 如果不需要绘图，直接回复用户的内容
 
 请以JSON格式返回分析结果：

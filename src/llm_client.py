@@ -192,21 +192,46 @@ class MoonshotClient:
         """
         system_prompt = f"""你是一个专业的Mermaid图表生成专家，负责将用户的自然语言描述转换为标准的Mermaid脚本。
 
-请根据用户的描述生成符合Mermaid语法的脚本。注意以下要求：
+请根据用户的描述生成符合Mermaid语法的脚本。必须严格遵守以下语法规范：
 
-1. 使用标准的Mermaid语法
-2. 图表要清晰、简洁、美观
-3. 节点命名要有意义
-4. 连线要清晰表示关系
-5. 使用合适的图表类型：{chart_type}
+**图表类型规范：**
+- flowchart: 使用 `graph TD` (从上到下) 或 `graph LR` (从左到右)
+- sequence: 使用 `sequenceDiagram`
+- class: 使用 `classDiagram`
+- state: 使用 `stateDiagram-v2`
+- entity: 使用 `erDiagram` (实体关系图)
+- journey: 使用 `journey`
+- gantt: 使用 `gantt`
 
-可用工具：{', '.join(mcp_tools)}
-可用资源：{', '.join(mcp_resources)}
+**通用语法规则：**
+1. 图表必须以大写图表类型声明开始，如 `graph TD`
+2. 节点ID只能包含字母、数字和下划线，不能包含空格或特殊字符
+3. 节点标签用方括号 `[标签]` 或圆括号 `(标签)`
+4. 连接线使用 `-->` (实线箭头) 或 `---` (实线无箭头)
+5. 子图使用 `subgraph 标题...end`
+6. 避免使用中文或特殊字符作为节点ID
+
+**具体语法示例：**
+- flowchart: A[开始] --> B{{判断条件}} -->|是| C[处理]
+- sequence: participant Alice; Alice->>Bob: 消息
+- class: class Animal {{{{+String name +int age +makeSound()}}}}
+- state: state 状态名 {{{{ 状态描述 }}}}
+- entity: entity 实体名 {{{{ 属性名 类型 }}}}
+- journey: 标题: 任务: 分数: 参与者
+- gantt: dateFormat YYYY-MM-DD; section 任务
+
+**错误避免：**
+- 不要使用空格或特殊字符作为节点ID
+- 确保所有箭头连接都是有效的
+- 不要混用不同图表类型的语法
+- 确保括号匹配
+
+使用图表类型：{chart_type}
 
 参考示例：
 {json.dumps(examples, ensure_ascii=False, indent=2)}
 
-请直接返回Mermaid脚本，不要包含额外的解释或标记。"""
+请直接返回Mermaid脚本，不要包含额外的解释或标记，确保语法100%正确。"""
 
         messages = [
             {"role": "system", "content": system_prompt},

@@ -18,7 +18,8 @@ class MoonshotClient:
     SUPPORTED_MODELS = {
         "moonshot-v1-8k": "8K上下文长度",
         "moonshot-v1-32k": "32K上下文长度", 
-        "moonshot-v1-128k": "128K上下文长度"
+        "moonshot-v1-128k": "128K上下文长度",
+        "kimi-k2-0711-preview":"k2模型，128K上下文长度"
     }
     
     def __init__(self, api_key: str, base_url: str = "https://api.moonshot.cn/v1", model: str = "moonshot-v1-8k"):

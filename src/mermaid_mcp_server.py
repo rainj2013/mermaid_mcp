@@ -61,8 +61,8 @@ def _check_mermaid_cli() -> bool:
     参数：
         script: Mermaid脚本内容
         format: 输出格式，支持png、svg、pdf（默认png）
-        width: 图片宽度（默认800）
-        height: 图片高度（默认600）
+        width: 图片宽度（默认1920）
+        height: 图片高度（默认1080）
         background: 背景颜色（默认transparent）
     
     返回：
@@ -72,8 +72,8 @@ def _check_mermaid_cli() -> bool:
 def render_mermaid(
     script: str, 
     format: str = "png", 
-    width: int = 800, 
-    height: int = 600, 
+    width: int = 1920, 
+    height: int = 1080, 
     background: str = "transparent"
 ) -> Dict[str, Any]:
     """

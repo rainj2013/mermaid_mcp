@@ -144,8 +144,8 @@ class MermaidMCPClient:
         self, 
         script: str, 
         format: str = "png", 
-        width: int = 800, 
-        height: int = 600, 
+        width: int = 1920, 
+        height: int = 1080, 
         background: str = "transparent"
     ) -> Dict[str, Any]:
         """

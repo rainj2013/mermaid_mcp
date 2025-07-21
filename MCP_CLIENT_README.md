@@ -102,15 +102,15 @@ client = MermaidMCPClient(server_url="http://127.0.0.1:8000/sse")
 
 #### 主要方法
 
-##### `render_mermaid(script, format='png', width=800, height=600, background='transparent')`
+##### `render_mermaid(script, format='png', width=1920, height=1080, background='transparent')`
 
 渲染 Mermaid 图形为图片。
 
 **参数：**
 - `script` (str): Mermaid 脚本内容
 - `format` (str): 输出格式，可选值：`png`, `svg`, `pdf`
-- `width` (int): 图片宽度，默认 800
-- `height` (int): 图片高度，默认 600
+- `width` (int): 图片宽度，默认 1920
+- `height` (int): 图片高度，默认 1080
 - `background` (str): 背景颜色，默认 `transparent`
 
 **返回值：**

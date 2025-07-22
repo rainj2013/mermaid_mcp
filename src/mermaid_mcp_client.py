@@ -18,15 +18,16 @@ log_dir = project_root / "logs"
 log_dir.mkdir(parents=True, exist_ok=True)
 log_file = log_dir / "mcp_client.log"
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(log_file, encoding='utf-8')
-    ]
-)
+# 使用特定的logger而不是根logger，避免影响其他模块
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# 避免重复添加处理器
+if not logger.handlers:
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 
 
 class MermaidMCPClient:

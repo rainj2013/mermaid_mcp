@@ -178,7 +178,13 @@ class MCPHost:
             if not intent_result.get("requires_tool", False):
                 # 不需要使用工具，直接聊天回复
                 logger.info("处理为通用聊天...")
-                chat_response = intent_result.get("direct_response") or await llm_client.chat_with_user(user_input)
+                
+                # 优先使用工具分析的回复，如果没有则调用chat_with_user
+                if intent_result.get("direct_response"):
+                    chat_response = intent_result["direct_response"]
+                    logger.info(f"工具分析直接回复: {chat_response}")
+                else:
+                    chat_response = await llm_client.chat_with_user(user_input)
                 
                 return {
                     "success": True,

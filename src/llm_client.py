@@ -124,7 +124,13 @@ class MoonshotClient:
         if context:
             messages.insert(1, {"role": "system", "content": f"上下文信息: {context}"})
             
-        return await self.chat_completion(messages, temperature=0.7)
+        logger.info(f"用户输入: {user_input}")
+        if context:
+            logger.info(f"上下文信息: {context}")
+            
+        response = await self.chat_completion(messages, temperature=0.7)
+        logger.info(f"大模型回复: {response}")
+        return response
     
     async def analyze_tool_intent(
         self, 
@@ -190,7 +196,7 @@ class MoonshotClient:
             result = json.loads(content.strip())
             
             # 确保返回格式正确
-            return {
+            formatted_result = {
                 "requires_tool": result.get("requires_tool", False),
                 "selected_tool": result.get("selected_tool", "none"),
                 "confidence": result.get("confidence", 0.0),
@@ -198,6 +204,9 @@ class MoonshotClient:
                 "direct_response": result.get("direct_response", ""),
                 "tool_parameters": result.get("tool_parameters", {})
             }
+            
+            logger.info(f"工具选择分析结果: {json.dumps(formatted_result, ensure_ascii=False)}")
+            return formatted_result
         except json.JSONDecodeError:
             logger.warning("无法解析LLM响应为JSON，使用默认响应")
             return {
@@ -285,6 +294,7 @@ class MoonshotClient:
         if script.endswith("```"):
             script = script[:-3]
             
+        logger.info(f"生成的Mermaid脚本: {script}")
         return script.strip()
     
     async def improve_mermaid_script(self, current_script: str, feedback: str) -> str:

@@ -174,8 +174,6 @@ class MoonshotClient:
         self, 
         user_input: str, 
         chart_type: str,
-        mcp_tools: List[str], 
-        mcp_resources: List[str],
         examples: Dict[str, str]
     ) -> str:
         """
@@ -184,8 +182,6 @@ class MoonshotClient:
         Args:
             user_input: 用户输入文本
             chart_type: 图表类型
-            mcp_tools: 可用的MCP工具列表
-            mcp_resources: 可用的MCP资源列表
             examples: 示例图表字典
             
         Returns:

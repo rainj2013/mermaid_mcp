@@ -192,8 +192,6 @@ class MCPHost:
             mermaid_script = await llm_client.generate_mermaid_script(
                 user_input=user_input,
                 chart_type=chart_type,
-                mcp_tools=[str(tool) for tool in mcp_capabilities["tools"]],
-                mcp_resources=[str(resource) for resource in mcp_capabilities["resources"]],
                 examples=mcp_capabilities["examples"]
             )
             

@@ -126,32 +126,59 @@ class MoonshotClient:
             
         return await self.chat_completion(messages, temperature=0.7)
     
-    async def detect_mermaid_intent(self, user_input: str) -> Dict[str, Any]:
+    async def analyze_tool_intent(
+        self, 
+        user_input: str, 
+        available_tools: List[str], 
+        available_resources: List[str] = None
+    ) -> Dict[str, Any]:
         """
-        检测用户输入是否包含Mermaid绘图意图
+        分析用户意图并选择合适的工具
         
         Args:
             user_input: 用户输入文本
+            available_tools: 可用的工具列表
+            available_resources: 可用的资源列表
             
         Returns:
-            包含意图信息的字典
+            包含工具选择和意图信息的字典
         """
-        system_prompt = """你是一个意图分析专家，负责分析用户输入是否需要绘制Mermaid图表。
+        tools_str = ", ".join(available_tools) if available_tools else "无可用工具"
+        resources_str = ", ".join(available_resources) if available_resources else "无可用资源"
+        
+        system_prompt = f"""你是一个智能助手，负责分析用户意图并选择合适的工具来满足需求。
 
-请分析用户输入，判断以下信息：
-1. 是否需要绘制Mermaid图表
-2. 图表类型（flowchart, sequence, class, state, entity, journey, gantt等）
-3. 如果不需要绘图，直接回复用户的内容
+当前可用的工具：{tools_str}
+当前可用的资源：{resources_str}
 
+请分析用户的输入，判断是否需要使用工具来完成任务：
+
+1. **工具使用判断**：
+   - 如果用户需求可以用现有工具解决，选择最合适的工具
+   - 如果用户需求不需要工具（如普通聊天、问答、建议等），直接回复
+   - 如果没有合适的工具，直接回复用户并说明情况
+
+2. **工具选择标准**：
+   - 仔细分析每个工具的功能描述
+   - 选择最匹配用户需求的工具
+   - 如果多个工具都相关，选择最直接的那个
+
+3. **回复格式**：
 请以JSON格式返回分析结果：
-{
-    "has_intent": true/false,
+{{
+    "requires_tool": true/false,
+    "selected_tool": "工具名称或"none"",
     "confidence": 0.0-1.0,
-    "chart_type": "图表类型",
-    "direct_response": "当has_intent为false时的直接回复内容"
-}
+    "reasoning": "选择该工具或回复的原因",
+    "direct_response": "当requires_tool为false时的直接回复内容",
+    "tool_parameters": {{"参数名": "参数值"}}
+}}
 
-当用户只是普通聊天或询问非图表相关问题时，has_intent为false，direct_response包含适当的回复。"""
+**示例判断**：
+- "帮我画一个流程图" → 如果有mermaid工具，requires_tool=true
+- "今天天气怎么样" → 如果没有天气工具，requires_tool=false，直接回复
+- "用mermaid画个用户登录流程" → 如果有mermaid工具，requires_tool=true
+- "你好" → 普通聊天，requires_tool=false"""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -160,21 +187,33 @@ class MoonshotClient:
         
         try:
             content = await self.chat_completion(messages, temperature=0.3)
-            return json.loads(content.strip())
+            result = json.loads(content.strip())
+            
+            # 确保返回格式正确
+            return {
+                "requires_tool": result.get("requires_tool", False),
+                "selected_tool": result.get("selected_tool", "none"),
+                "confidence": result.get("confidence", 0.0),
+                "reasoning": result.get("reasoning", ""),
+                "direct_response": result.get("direct_response", ""),
+                "tool_parameters": result.get("tool_parameters", {})
+            }
         except json.JSONDecodeError:
             logger.warning("无法解析LLM响应为JSON，使用默认响应")
             return {
-                "has_intent": False,
+                "requires_tool": False,
+                "selected_tool": "none",
                 "confidence": 0.0,
-                "chart_type": "",
-                "direct_response": "我理解您的需求，让我为您提供帮助。"
+                "reasoning": "解析失败",
+                "direct_response": "我理解您的需求，让我为您提供帮助。",
+                "tool_parameters": {}
             }
     
     async def generate_mermaid_script(
         self, 
         user_input: str, 
-        chart_type: str,
-        examples: Dict[str, str]
+        chart_type: str = "flowchart",
+        examples: Dict[str, str] = None
     ) -> str:
         """
         根据用户输入生成Mermaid脚本

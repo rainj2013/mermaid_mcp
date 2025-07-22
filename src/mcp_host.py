@@ -150,7 +150,7 @@ class MCPHost:
     
     async def process_user_input(self, user_input: str, mcp_capabilities: Dict[str, Any]) -> Dict[str, Any]:
         """
-        处理用户输入，支持通用聊天和Mermaid图表生成
+        处理用户输入，智能选择工具或直接聊天回复
         
         Args:
             user_input: 用户输入文本
@@ -167,12 +167,16 @@ class MCPHost:
             model=self.config["moonshot_api"]["model"]
         ) as llm_client:
             
-            # 1. 检测用户意图
-            logger.info("检测用户意图...")
-            intent_result = await llm_client.detect_mermaid_intent(user_input)
+            # 1. 分析用户意图和工具选择
+            logger.info("分析用户意图和工具选择...")
+            intent_result = await llm_client.analyze_tool_intent(
+                user_input=user_input,
+                available_tools=mcp_capabilities["tools"],
+                available_resources=mcp_capabilities["resources"]
+            )
             
-            if not intent_result.get("has_intent", False):
-                # 非绘图意图，直接聊天回复
+            if not intent_result.get("requires_tool", False):
+                # 不需要使用工具，直接聊天回复
                 logger.info("处理为通用聊天...")
                 chat_response = intent_result.get("direct_response") or await llm_client.chat_with_user(user_input)
                 
@@ -183,81 +187,116 @@ class MCPHost:
                     "intent": intent_result
                 }
             
-            logger.info(f"检测到绘图意图，置信度: {intent_result.get('confidence', 0)}")
+            selected_tool = intent_result.get("selected_tool", "")
+            logger.info(f"检测到工具使用需求，选择工具: {selected_tool}，置信度: {intent_result.get('confidence', 0)}")
             
-            # 2. 生成Mermaid脚本
-            logger.info("生成Mermaid脚本...")
-            chart_type = intent_result.get("chart_type", "flowchart")
+            # 2. 根据选择的工具执行相应操作
+            if selected_tool == "render_mermaid":
+                return await self._handle_mermaid_tool(user_input, mcp_capabilities, llm_client, intent_result)
+            else:
+                # 其他工具处理逻辑（可扩展）
+                logger.warning(f"未实现的工具: {selected_tool}")
+                return {
+                    "success": False,
+                    "is_chat": True,
+                    "message": f"抱歉，工具 {selected_tool} 尚未实现",
+                    "intent": intent_result
+                }
+
+    async def _handle_mermaid_tool(
+        self, 
+        user_input: str, 
+        mcp_capabilities: Dict[str, Any], 
+        llm_client, 
+        intent_result: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        处理Mermaid图表生成工具
+        
+        Args:
+            user_input: 用户输入文本
+            mcp_capabilities: MCP Server能力信息
+            llm_client: LLM客户端实例
+            intent_result: 意图分析结果
             
-            mermaid_script = await llm_client.generate_mermaid_script(
-                user_input=user_input,
-                chart_type=chart_type,
-                examples=mcp_capabilities["examples"]
-            )
+        Returns:
+            包含处理结果的字典
+        """
+        # 提取图表类型参数（如果有）
+        tool_params = intent_result.get("tool_parameters", {})
+        chart_type = tool_params.get("chart_type", "flowchart")
+        
+        # 生成Mermaid脚本
+        logger.info(f"生成Mermaid脚本，图表类型: {chart_type}...")
+        mermaid_script = await llm_client.generate_mermaid_script(
+            user_input=user_input,
+            chart_type=chart_type,
+            examples=mcp_capabilities["examples"]
+        )
+        
+        logger.info(f"生成Mermaid脚本完成，长度: {len(mermaid_script)} 字符")
+        
+        # 渲染图表
+        logger.info("连接到MCP Server进行渲染...")
+        async with MermaidMCPClient(
+            server_url=self.config["mcp_server"]["server_url"]
+        ) as client:
             
-            logger.info(f"生成Mermaid脚本完成，长度: {len(mermaid_script)} 字符")
-            
-            # 3. 渲染图表
-            logger.info("连接到MCP Server进行渲染...")
-            async with MermaidMCPClient(
-                server_url=self.config["mcp_server"]["server_url"]
-            ) as client:
+            # 验证脚本
+            validation_result = await client.validate_mermaid(mermaid_script)
+            if not validation_result.get("is_valid", False):
+                logger.warning(f"Mermaid脚本验证失败: {validation_result.get('error')}")
                 
-                # 验证脚本
-                validation_result = await client.validate_mermaid(mermaid_script)
-                if not validation_result.get("is_valid", False):
-                    logger.warning(f"Mermaid脚本验证失败: {validation_result.get('error')}")
-                    
-                    # 尝试修复脚本
-                    logger.info("尝试修复Mermaid脚本...")
-                    fixed_script = await llm_client.improve_mermaid_script(
-                        mermaid_script, 
-                        f"修复语法错误: {validation_result.get('error')}"
-                    )
-                    
-                    # 重新验证
-                    validation_result = await client.validate_mermaid(fixed_script)
-                    if validation_result.get("is_valid", False):
-                        mermaid_script = fixed_script
-                        logger.info("脚本修复成功")
-                    else:
-                        return {
-                            "success": False,
-                            "is_chat": False,
-                            "message": f"Mermaid脚本验证失败: {validation_result.get('error')}",
-                            "script": mermaid_script,
-                            "validation_error": validation_result.get('error')
-                        }
-                
-                # 渲染图表
-                render_result = await client.render_mermaid(
-                    mermaid_script,
-                    format="png",
-                    width=1920,
-                    height=1080
+                # 尝试修复脚本
+                logger.info("尝试修复Mermaid脚本...")
+                fixed_script = await llm_client.improve_mermaid_script(
+                    mermaid_script, 
+                    f"修复语法错误: {validation_result.get('error')}"
                 )
                 
-                if render_result.get("success"):
-                    logger.info(f"图表渲染成功: {render_result.get('image_path')}")
-                    return {
-                        "success": True,
-                        "is_chat": False,
-                        "message": "图表已成功生成！",
-                        "intent": intent_result,
-                        "script": mermaid_script,
-                        "image_path": render_result.get("image_path"),
-                        "file_id": render_result.get("file_id"),
-                        "size": render_result.get("size")
-                    }
+                # 重新验证
+                validation_result = await client.validate_mermaid(fixed_script)
+                if validation_result.get("is_valid", False):
+                    mermaid_script = fixed_script
+                    logger.info("脚本修复成功")
                 else:
-                    logger.error(f"图表渲染失败: {render_result.get('error')}")
                     return {
                         "success": False,
                         "is_chat": False,
-                        "message": f"图表渲染失败: {render_result.get('error')}",
+                        "message": f"Mermaid脚本验证失败: {validation_result.get('error')}",
                         "script": mermaid_script,
-                        "render_error": render_result.get("error")
+                        "validation_error": validation_result.get('error')
                     }
+            
+            # 渲染图表
+            render_result = await client.render_mermaid(
+                mermaid_script,
+                format="png",
+                width=1920,
+                height=1080
+            )
+            
+            if render_result.get("success"):
+                logger.info(f"图表渲染成功: {render_result.get('image_path')}")
+                return {
+                    "success": True,
+                    "is_chat": False,
+                    "message": "图表已成功生成！",
+                    "intent": intent_result,
+                    "script": mermaid_script,
+                    "image_path": render_result.get("image_path"),
+                    "file_id": render_result.get("file_id"),
+                    "size": render_result.get("size")
+                }
+            else:
+                logger.error(f"图表渲染失败: {render_result.get('error')}")
+                return {
+                    "success": False,
+                    "is_chat": False,
+                    "message": f"图表渲染失败: {render_result.get('error')}",
+                    "script": mermaid_script,
+                    "render_error": render_result.get("error")
+                }
     
     async def interactive_mode(self):
         """交互模式"""

@@ -110,13 +110,15 @@ class MCPHost:
         分析MCP Server的能力和可用资源
         
         Returns:
-            包含MCP Server信息的字典
+            包含MCP Server信息的字典，包含完整的工具和资源详情
         """
         logger.info("正在分析MCP Server能力...")
         
         capabilities = {
             "tools": [],
+            "tools_details": [],
             "resources": [],
+            "resources_details": [],
             "examples": {},
             "formats": {}
         }
@@ -125,14 +127,30 @@ class MCPHost:
             async with MermaidMCPClient(
                 server_url=self.config["mcp_server"]["server_url"]
             ) as client:
-                # 获取可用工具
+                # 获取可用工具详情
                 tools = await client.list_tools()
                 capabilities["tools"] = [str(tool.name) for tool in tools]
+                capabilities["tools_details"] = [
+                    {
+                        "name": str(tool.name),
+                        "description": str(tool.description),
+                        "input_schema": tool.inputSchema if hasattr(tool, 'inputSchema') else {}
+                    }
+                    for tool in tools
+                ]
                 logger.info(f"发现 {len(tools)} 个可用工具: {capabilities['tools']}")
                 
-                # 获取可用资源
+                # 获取可用资源详情
                 resources = await client.list_resources()
                 capabilities["resources"] = [str(resource.uri) for resource in resources]
+                capabilities["resources_details"] = [
+                    {
+                        "uri": str(resource.uri),
+                        "name": str(resource.name),
+                        "description": str(resource.description) if hasattr(resource, 'description') else ""
+                    }
+                    for resource in resources
+                ]
                 logger.info(f"发现 {len(resources)} 个可用资源: {capabilities['resources']}")
                 
                 # 获取示例
@@ -171,8 +189,8 @@ class MCPHost:
             logger.info("分析用户意图和工具选择...")
             intent_result = await llm_client.analyze_tool_intent(
                 user_input=user_input,
-                available_tools=mcp_capabilities["tools"],
-                available_resources=mcp_capabilities["resources"]
+                available_tools=mcp_capabilities["tools_details"],
+                available_resources=mcp_capabilities["resources_details"]
             )
             
             if not intent_result.get("requires_tool", False):

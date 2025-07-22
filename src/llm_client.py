@@ -135,39 +135,44 @@ class MoonshotClient:
     async def analyze_tool_intent(
         self, 
         user_input: str, 
-        available_tools: List[str], 
-        available_resources: List[str] = None
+        available_tools: List[Dict[str, Any]], 
+        available_resources: List[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         分析用户意图并选择合适的工具
         
         Args:
             user_input: 用户输入文本
-            available_tools: 可用的工具列表
-            available_resources: 可用的资源列表
+            available_tools: 可用的工具详情列表，每个工具包含name, description, input_schema
+            available_resources: 可用的资源详情列表，每个资源包含uri, name, description
             
         Returns:
             包含工具选择和意图信息的字典
         """
-        tools_str = ", ".join(available_tools) if available_tools else "无可用工具"
-        resources_str = ", ".join(available_resources) if available_resources else "无可用资源"
+        tools_json = json.dumps(available_tools, ensure_ascii=False, indent=2) if available_tools else "[]"
+        resources_json = json.dumps(available_resources, ensure_ascii=False, indent=2) if available_resources else "[]"
         
         system_prompt = f"""你是一个智能助手，负责分析用户意图并选择合适的工具来满足需求。
 
-当前可用的工具：{tools_str}
-当前可用的资源：{resources_str}
+当前可用的工具详情：
+{tools_json}
+
+当前可用的资源详情：
+{resources_json}
 
 请分析用户的输入，判断是否需要使用工具来完成任务：
 
 1. **工具使用判断**：
+   - 仔细分析每个工具的功能描述和输入参数要求
    - 如果用户需求可以用现有工具解决，选择最合适的工具
    - 如果用户需求不需要工具（如普通聊天、问答、建议等），直接回复
    - 如果没有合适的工具，直接回复用户并说明情况
 
 2. **工具选择标准**：
-   - 仔细分析每个工具的功能描述
-   - 选择最匹配用户需求的工具
-   - 如果多个工具都相关，选择最直接的那个
+   - 仔细阅读每个工具的description字段，理解其功能
+   - 根据用户需求的类型选择最匹配的工具
+   - 考虑工具的输入schema要求，确保能提供必要的参数
+   - 如果多个工具都相关，选择最直接、最匹配的那个
 
 3. **回复格式**：
 请以JSON格式返回分析结果：
@@ -175,15 +180,20 @@ class MoonshotClient:
     "requires_tool": true/false,
     "selected_tool": "工具名称或"none"",
     "confidence": 0.0-1.0,
-    "reasoning": "选择该工具或回复的原因",
+    "reasoning": "选择该工具或回复的详细原因",
     "direct_response": "当requires_tool为false时的直接回复内容",
-    "tool_parameters": {{"参数名": "参数值"}}
+    "tool_parameters": {{"参数名": "参数值"}},
+    "tool_description": "所选工具的详细描述"
 }}
 
+**工具理解要点**：
+- render_mermaid: 用于生成和渲染Mermaid图表，需要用户提供图表描述和类型
+- 其他工具: 根据具体工具的description来判断是否适用
+
 **示例判断**：
-- "帮我画一个流程图" → 如果有mermaid工具，requires_tool=true
+- "帮我画一个流程图" → 如果有render_mermaid工具，requires_tool=true
 - "今天天气怎么样" → 如果没有天气工具，requires_tool=false，直接回复
-- "用mermaid画个用户登录流程" → 如果有mermaid工具，requires_tool=true
+- "用mermaid画个用户登录流程" → 如果有render_mermaid工具，requires_tool=true
 - "你好" → 普通聊天，requires_tool=false"""
 
         messages = [
@@ -202,7 +212,8 @@ class MoonshotClient:
                 "confidence": result.get("confidence", 0.0),
                 "reasoning": result.get("reasoning", ""),
                 "direct_response": result.get("direct_response", ""),
-                "tool_parameters": result.get("tool_parameters", {})
+                "tool_parameters": result.get("tool_parameters", {}),
+                "tool_description": result.get("tool_description", "")
             }
             
             logger.info(f"工具选择分析结果: {json.dumps(formatted_result, ensure_ascii=False)}")

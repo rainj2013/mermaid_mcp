@@ -15,7 +15,8 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from llm_client import MoonshotClient
-from mermaid_mcp_client import MermaidMCPClient
+from mcp_client_wrapper import MCPClientWrapper
+from mermaid_mcp_client import MermaidMCPClient  # 仅用于Mermaid特定server
 
 # 配置日志
 import logging.handlers
@@ -114,51 +115,13 @@ class MCPHost:
         """
         logger.info("正在分析MCP Server能力...")
         
-        capabilities = {
-            "tools": [],
-            "tools_details": [],
-            "resources": [],
-            "resources_details": [],
-            "examples": {},
-            "formats": {}
-        }
-        
         try:
-            async with MermaidMCPClient(
-                server_url=self.config["mcp_server"]["server_url"]
+            # 使用通用MCP客户端包装器
+            async with MCPClientWrapper(
+                server_url=self.config["mcp_server"]["server_url"],
+                client_class=MermaidMCPClient
             ) as client:
-                # 获取可用工具详情
-                tools = await client.list_tools()
-                capabilities["tools"] = [str(tool.name) for tool in tools]
-                capabilities["tools_details"] = [
-                    {
-                        "name": str(tool.name),
-                        "description": str(tool.description),
-                        "input_schema": tool.inputSchema if hasattr(tool, 'inputSchema') else {}
-                    }
-                    for tool in tools
-                ]
-                logger.info(f"发现 {len(tools)} 个可用工具: {capabilities['tools']}")
-                
-                # 获取可用资源详情
-                resources = await client.list_resources()
-                capabilities["resources"] = [str(resource.uri) for resource in resources]
-                capabilities["resources_details"] = [
-                    {
-                        "uri": str(resource.uri),
-                        "name": str(resource.name),
-                        "description": str(resource.description) if hasattr(resource, 'description') else ""
-                    }
-                    for resource in resources
-                ]
-                logger.info(f"发现 {len(resources)} 个可用资源: {capabilities['resources']}")
-                
-                # 获取示例
-                capabilities["examples"] = await client.get_examples()
-                
-                # 获取支持的格式
-                formats = await client.get_supported_formats()
-                capabilities["formats"] = formats
+                capabilities = await client.get_capabilities()
                 
         except Exception as e:
             logger.error(f"分析MCP Server能力失败: {e}")
@@ -185,161 +148,110 @@ class MCPHost:
             model=self.config["moonshot_api"]["model"]
         ) as llm_client:
             
-            # 1. 分析用户意图和工具选择
-            logger.info("分析用户意图和工具选择...")
-            intent_result = await llm_client.analyze_tool_intent(
-                user_input=user_input,
-                available_tools=mcp_capabilities["tools_details"],
-                available_resources=mcp_capabilities["resources_details"]
-            )
-            
-            if not intent_result.get("requires_tool", False):
-                # 不需要使用工具，直接聊天回复
-                logger.info("处理为通用聊天...")
+            # 使用通用MCP客户端包装器
+            async with MCPClientWrapper(
+                server_url=self.config["mcp_server"]["server_url"],
+                client_class=MermaidMCPClient
+            ) as mcp_client:
                 
-                # 优先使用工具分析的回复，如果没有则调用chat_with_user
-                if intent_result.get("direct_response"):
-                    chat_response = intent_result["direct_response"]
-                    logger.info(f"工具分析直接回复: {chat_response}")
-                else:
-                    chat_response = await llm_client.chat_with_user(user_input)
-                
-                return {
-                    "success": True,
-                    "is_chat": True,
-                    "message": chat_response,
-                    "intent": intent_result
-                }
-            
-            selected_tool = intent_result.get("selected_tool", "")
-            logger.info(f"检测到工具使用需求，选择工具: {selected_tool}，置信度: {intent_result.get('confidence', 0)}")
-            
-            # 2. 根据选择的工具执行相应操作
-            if selected_tool == "render_mermaid":
-                return await self._handle_mermaid_tool(user_input, mcp_capabilities, llm_client, intent_result)
-            else:
-                # 其他工具处理逻辑（可扩展）
-                logger.warning(f"未实现的工具: {selected_tool}")
-                return {
-                    "success": False,
-                    "is_chat": True,
-                    "message": f"抱歉，工具 {selected_tool} 尚未实现",
-                    "intent": intent_result
-                }
-
-    async def _handle_mermaid_tool(
-        self, 
-        user_input: str, 
-        mcp_capabilities: Dict[str, Any], 
-        llm_client, 
-        intent_result: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        处理Mermaid图表生成工具
-        
-        Args:
-            user_input: 用户输入文本
-            mcp_capabilities: MCP Server能力信息
-            llm_client: LLM客户端实例
-            intent_result: 意图分析结果
-            
-        Returns:
-            包含处理结果的字典
-        """
-        # 提取图表类型参数（如果有）
-        tool_params = intent_result.get("tool_parameters", {})
-        chart_type = tool_params.get("chart_type", "flowchart")
-        
-        # 生成Mermaid脚本
-        logger.info(f"生成Mermaid脚本，图表类型: {chart_type}...")
-        mermaid_script = await llm_client.generate_mermaid_script(
-            user_input=user_input,
-            chart_type=chart_type,
-            examples=mcp_capabilities["examples"]
-        )
-        
-        logger.info(f"生成Mermaid脚本完成，长度: {len(mermaid_script)} 字符")
-        
-        # 渲染图表
-        logger.info("连接到MCP Server进行渲染...")
-        async with MermaidMCPClient(
-            server_url=self.config["mcp_server"]["server_url"]
-        ) as client:
-            
-            # 验证脚本
-            validation_result = await client.validate_mermaid(mermaid_script)
-            if not validation_result.get("is_valid", False):
-                logger.warning(f"Mermaid脚本验证失败: {validation_result.get('error')}")
-                
-                # 尝试修复脚本
-                logger.info("尝试修复Mermaid脚本...")
-                fixed_script = await llm_client.improve_mermaid_script(
-                    mermaid_script, 
-                    f"修复语法错误: {validation_result.get('error')}"
+                # 1. 分析用户意图和工具选择
+                logger.info("分析用户意图和工具选择...")
+                intent_result = await llm_client.analyze_tool_intent(
+                    user_input=user_input,
+                    available_tools=mcp_capabilities["tools"],
+                    available_resources=mcp_capabilities["resources"]
                 )
                 
-                # 重新验证
-                validation_result = await client.validate_mermaid(fixed_script)
-                if validation_result.get("is_valid", False):
-                    mermaid_script = fixed_script
-                    logger.info("脚本修复成功")
-                else:
+                if not intent_result.get("requires_tool", False):
+                    # 不需要使用工具，直接聊天回复
+                    logger.info("处理为通用聊天...")
+                    
+                    # 优先使用工具分析的回复，如果没有则调用chat_with_user
+                    if intent_result.get("direct_response"):
+                        chat_response = intent_result["direct_response"]
+                        logger.info(f"工具分析直接回复: {chat_response}")
+                    else:
+                        chat_response = await llm_client.chat_with_user(user_input)
+                    
+                    return {
+                        "success": True,
+                        "is_chat": True,
+                        "message": chat_response,
+                        "intent": intent_result
+                    }
+                
+                selected_tool = intent_result.get("selected_tool", "")
+                logger.info(f"检测到工具使用需求，选择工具: {selected_tool}，置信度: {intent_result.get('confidence', 0)}")
+                
+                # 2. 找到选中的工具定义
+                selected_tool_def = None
+                for tool in mcp_capabilities["tools"]:
+                    if tool["name"] == selected_tool:
+                        selected_tool_def = tool
+                        break
+                
+                if not selected_tool_def:
                     return {
                         "success": False,
                         "is_chat": False,
-                        "message": f"Mermaid脚本验证失败: {validation_result.get('error')}",
-                        "script": mermaid_script,
-                        "validation_error": validation_result.get('error')
+                        "message": f"未找到工具 {selected_tool}",
+                        "intent": intent_result
                     }
-            
-            # 渲染图表
-            render_result = await client.render_mermaid(
-                mermaid_script,
-                format="png",
-                width=1920,
-                height=1080
-            )
-            
-            if render_result.get("success"):
-                logger.info(f"图表渲染成功: {render_result.get('image_path')}")
-                return {
-                    "success": True,
-                    "is_chat": False,
-                    "message": "图表已成功生成！",
-                    "intent": intent_result,
-                    "script": mermaid_script,
-                    "image_path": render_result.get("image_path"),
-                    "file_id": render_result.get("file_id"),
-                    "size": render_result.get("size")
-                }
-            else:
-                logger.error(f"图表渲染失败: {render_result.get('error')}")
-                return {
-                    "success": False,
-                    "is_chat": False,
-                    "message": f"图表渲染失败: {render_result.get('error')}",
-                    "script": mermaid_script,
-                    "render_error": render_result.get("error")
-                }
+                
+                # 3. 使用LLM提供的参数，LLM负责所有参数组装
+                final_params = intent_result.get("tool_parameters", {})
+                logger.info(f"使用LLM提供的参数: {final_params}")
+                
+                logger.info(f"最终工具参数: {final_params}")
+                
+                # 4. 执行选择的工具
+                try:
+                    result = await mcp_client.execute_tool(selected_tool, final_params)
+                    
+                    # 构建通用的工具执行响应
+                    response_data = {
+                        "success": True,
+                        "is_chat": False,
+                        "message": f"工具 {selected_tool} 执行成功！",
+                        "intent": intent_result,
+                        "tool_name": selected_tool,
+                        "tool_result": result  # 直接传递完整的工具结果
+                    }
+                    
+                    return response_data
+                    
+                except Exception as e:
+                    logger.error(f"执行工具 {selected_tool} 失败: {e}")
+                    error_response = {
+                        "success": False,
+                        "is_chat": False,
+                        "message": f"执行工具失败: {e}",
+                        "intent": intent_result,
+                        "error": str(e),
+                        "tool_parameters": final_params  # 包含参数用于调试
+                    }
+                    
+                    return error_response
+
     
     async def interactive_mode(self):
         """交互模式"""
-        print("🎮 Mermaid MCP Host - 智能聊天与图表生成器")
+        print("🎮 MCP Host - 智能工具调用助手")
         print("=" * 50)
-        print("💡 提示：可以聊天或生成图表，我会根据您的需求自动处理")
-        print("   聊天：'今天吃什么好？'")
-        print("   图表：'画一个用户登录的流程图，包含用户名密码验证'")
+        print("💡 提示：我可以帮您调用各种可用工具")
+        print("   聊天：直接提问或描述需求")
+        print("   工具：描述您需要使用的功能")
         print("=" * 50)
         
         try:
             # 分析MCP Server能力
             print("🔍 正在分析MCP Server能力...")
             mcp_capabilities = await self.analyze_mcp_capabilities()
-            print(f"✅ MCP Server已就绪 - 支持 {len(mcp_capabilities['tools'])} 个工具")
+            print(f"✅ MCP Server已就绪 - 发现 {len(mcp_capabilities['tools'])} 个可用工具")
             
             while True:
                 try:
-                    user_input = input("\n请输入您的问题或图表需求 (输入 'quit' 退出): ").strip()
+                    user_input = input("\n请输入您的问题或需求 (输入 'quit' 退出): ").strip()
                     
                     if user_input.lower() in ['quit', 'exit', 'q']:
                         print("👋 感谢使用！再见！")
@@ -356,31 +268,55 @@ class MCPHost:
                             # 通用聊天模式
                             print(f"\n🤖 {result['message']}")
                         else:
-                            # 图表生成模式
+                            # 工具执行成功模式
                             print(f"\n✅ {result['message']}")
-                            if "image_path" in result:
-                                print(f"📁 文件路径: {result['image_path']}")
-                            if "file_id" in result:
-                                print(f"🆔 文件ID: {result['file_id']}")
-                            if "size" in result:
-                                print(f"📊 文件大小: {result['size']} bytes")
-                            if "script" in result:
-                                print(f"\n📝 生成的Mermaid脚本:")
-                                print("-" * 30)
-                                print(result["script"])
+                            
+                            # 通用结果展示 - 不依赖特定工具字段
+                            tool_result = result.get("tool_result", {})
+                            if isinstance(tool_result, dict):
+                                # 显示工具返回的所有信息
+                                for key, value in tool_result.items():
+                                    if key == "success":
+                                        continue  # 跳过success标志
+                                    elif isinstance(value, str) and len(value) > 100:
+                                        # 长内容截断显示
+                                        print(f"📋 {key}: {value[:100]}...")
+                                    else:
+                                        print(f"📋 {key}: {value}")
+                            
+                            # 显示参数信息
+                            if "intent" in result and "tool_parameters" in result["intent"]:
+                                params = result["intent"]["tool_parameters"]
+                                if params:
+                                    print(f"\n📝 工具参数:")
+                                    print("-" * 30)
+                                    for key, value in params.items():
+                                        if isinstance(value, str) and len(value) > 100:
+                                            print(f"{key}: {value[:100]}...")
+                                        else:
+                                            print(f"{key}: {value}")
                     else:
                         print(f"\n❌ {result['message']}")
                         
-                        if "script" in result:
-                            print(f"\n📝 生成的脚本:")
-                            print("-" * 30)
-                            print(result["script"])
+                        # 显示错误详情
+                        if "error" in result:
+                            print(f"💬 错误详情: {result['error']}")
                         
-                        # 提供改进建议
-                        if "validation_error" in result:
-                            print(f"\n💡 改进建议: 请检查Mermaid语法是否正确")
-                        elif "render_error" in result:
-                            print(f"\n💡 改进建议: 可能是脚本过于复杂或格式问题")
+                        # 显示参数用于调试
+                        if "tool_parameters" in result:
+                            params = result["tool_parameters"]
+                            if params:
+                                print(f"\n📝 使用的参数:")
+                                print("-" * 30)
+                                for key, value in params.items():
+                                    if isinstance(value, str) and len(value) > 100:
+                                        print(f"{key}: {value[:100]}...")
+                                    else:
+                                        print(f"{key}: {value}")
+                        
+                        # 提供通用建议
+                        if "validation_error" in result or "render_error" in result:
+                            print(f"\n💡 建议: 请检查输入参数是否正确，或联系技术支持")
                         
                 except KeyboardInterrupt:
                     print("\n👋 用户中断，再见！")
@@ -393,7 +329,7 @@ class MCPHost:
             logger.error(f"启动失败: {e}")
             print(f"❌ 启动失败: {e}")
             print("💡 请确保：")
-            print("   1. MCP Server已启动: python src/mermaid_mcp_server.py")
+            print("   1. MCP Server已启动")
             print("   2. 配置文件config.json已正确设置")
             print("   3. 月之暗面API密钥已配置")
 

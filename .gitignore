@@ -33,6 +33,3 @@ config.json
 
 # Claude
 .claude/
-
-# Documentation
-docs/

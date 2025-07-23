@@ -92,7 +92,7 @@ python src/mermaid_mcp_client.py
 - `tools` - 列出可用工具
 - `resources` - 列出可用资源
 
-详细使用说明请参考 [MCP Client 文档](MCP_CLIENT_README.md)
+详细使用说明请参考 [MCP Client 文档](docs/mcp_client_readme.md)
 
 ## 使用 MCP Host 智能主机
 
@@ -102,4 +102,4 @@ python src/mermaid_mcp_client.py
 python src/mcp_host.py
 ```
 
-详细使用说明请参考 [MCP Host 文档](MCP_HOST_README.md)
+详细使用说明请参考 [MCP Host 文档](docs/mcp_host_readme.md)
